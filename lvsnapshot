@@ -6,6 +6,7 @@ PROG_NAME__="`basename $0`"
 DEBUG_=''   # echo if enabled
 OPT_DEBUG_='false'
 OPT_FORCE_='false'
+OPT_FSTYPE_=''
 
 function debug_enabled {
     [[ $OPT_DEBUG_ == 'true' ]] && return 0 || return 1
@@ -29,8 +30,9 @@ Usage: "$PROG_NAME__" <ACTION> LV LV_SNAPSHOT MNT_POINT
 $PROG_NAME__ is a program to easily manage lvm snapshots including mountpoints
 
 OPTIONS:
-   -f          Force, proceed even if error occours or against safety checks
+   -t          Filesystem type (e.g xfs needs special handling)
    -d          Enable debugging (enable -f for complete command dump)
+   -f          Force, proceed even if error occours or against safety checks
    -h          This help message
 
 ACTIONS:
@@ -48,6 +50,11 @@ function action
     local MNT_="$3"
     local VG_="$(dirname $LV_)"
     local LVS_PATH_="${VG_}/${LVS_}"
+    local MOUNT_OPT_=""
+
+    case $OPT_FSTYPE_ in
+        xfs) MOUNT_OPT_='-o nouuid'
+    esac
 
     if ! echo "$LVS_PATH_" |grep -q '^/dev/'; then
         LVS_PATH_="/dev/$LVS_PATH_"
@@ -55,7 +62,7 @@ function action
 
     if [[ $ACTION_ == "add" ]]; then
         $DEBUG_ lvcreate -s --size 5g -n "$LVS_" "$LV_"
-        $DEBUG_ mount -o nouuid "$LVS_PATH_" "$MNT_"
+        $DEBUG_ mount $MOUNT_OPT_ "$LVS_PATH_" "$MNT_"
     else
         $DEBUG_ umount "$MNT_"
         # safety checks
@@ -74,8 +81,9 @@ if (( $# < 1 )); then
     exit 1
 fi
 
-while getopts "hfd" opt; do
+while getopts "t:dfh" opt; do
     case "$opt" in
+        t) OPT_FSTYPE_="$OPTARG" ;;
         d) OPT_DEBUG_='true'; DEBUG_='echo' ;;
         f) OPT_FORCE_='true' ;;
         h) printUsage; exit 0 ;;
