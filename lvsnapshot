@@ -40,6 +40,11 @@ ACTIONS:
    rm         Remove lvm snapshot + unmount
    help       this help text
 
+Examples:
+    $PROG_NAME__ add main/root main/root-rsync /mnt/tmp
+    $PROG_NAME__ rm  main/root main/root-rsync /mnt/tmp
+        (add and rm should be symetric)
+
 EOT
 }
 
