@@ -1,24 +1,43 @@
 #!/bin/bash
 
-PROG_NAME__="`basename $0`"
+set -u
 
-if [[ $DEBUG != '' ]]; then
-    DEBUG_='echo'
-else
-    DEBUG_=''
-fi
+PROG_NAME__="`basename $0`"
+DEBUG_=''   # echo if enabled
+OPT_DEBUG_='false'
+OPT_FORCE_='false'
+
+function debug_enabled {
+    [[ $OPT_DEBUG_ == 'true' ]] && return 0 || return 1
+}
+function force_enabled {
+    [[ $OPT_FORCE_ == 'true' ]] && return 0 || return 1
+}
+
+function die
+{
+    echo "$@" >&2
+    exit 1
+}
+
 
 function printUsage
 {
     cat <<EOT
 Usage: "$PROG_NAME__" <ACTION> LV LV_SNAPSHOT MNT_POINT
 
-$PROG_NAME__ is a program to easily add and remove lvm snapshots and mount them
+$PROG_NAME__ is a program to easily manage lvm snapshots including mountpoints
+
+OPTIONS:
+   -f          Force, proceed even if error occours or against safety checks
+   -d          Enable debugging (enable -f for complete command dump)
+   -h          This help message
 
 ACTIONS:
    add        Create lvm snapshot + mount
    rm         Remove lvm snapshot + unmount
    help       this help text
+
 EOT
 }
 
@@ -30,17 +49,43 @@ function action
     local VG_="$(dirname $LV_)"
     local LVS_PATH_="${VG_}/${LVS_}"
 
+    if ! echo "$LVS_PATH_" |grep -q '^/dev/'; then
+        LVS_PATH_="/dev/$LVS_PATH_"
+    fi
+
     if [[ $ACTION_ == "add" ]]; then
         $DEBUG_ lvcreate -s --size 5g -n "$LVS_" "$LV_"
         $DEBUG_ mount -o nouuid "$LVS_PATH_" "$MNT_"
     else
         $DEBUG_ umount "$MNT_"
-        $DEBUG_ lvremove "$LVS_PATH_"
+        # safety checks
+        debug_enabled && echo "lvdisplay $LVS_PATH_ |grep -q 'LV snapshot status *active destination for'"
+        if ! lvdisplay "$LVS_PATH_" |grep -q 'LV snapshot status *active destination for'; then
+            force_enabled && break
+            die "ERROR: $LVS_PATH_ does not look like an lvm snapshot, will NOT remove"
+        fi
+        $DEBUG_ lvremove -f "$LVS_PATH_"
     fi
 }
+
+if (( $# < 1 )); then
+    echo 'Error: no action given' >&2
+    printUsage
+    exit 1
+fi
+
+while getopts "hfd" opt; do
+    case "$opt" in
+        d) OPT_DEBUG_='true'; DEBUG_='echo' ;;
+        f) OPT_FORCE_='true' ;;
+        h) printUsage; exit 0 ;;
+    esac
+done
+shift $(($OPTIND - 1))  # set ARGV to the first not parsed commandline parameter
 
 case "$1" in
   add) ACTION_='add'; shift; action "$@"; exit 0 ;;
   rm) ACTION_='rm'; shift; action "$@"; exit 0 ;;
+  h|help) printUsage; exit 0 ;;
   "") printUsage; exit 0 ;;
 esac
