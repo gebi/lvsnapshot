@@ -75,12 +75,6 @@ function action
     fi
 }
 
-if (( $# < 1 )); then
-    echo 'Error: no action given' >&2
-    printUsage
-    exit 1
-fi
-
 while getopts "t:dfh" opt; do
     case "$opt" in
         t) OPT_FSTYPE_="$OPTARG" ;;
@@ -91,9 +85,14 @@ while getopts "t:dfh" opt; do
 done
 shift $(($OPTIND - 1))  # set ARGV to the first not parsed commandline parameter
 
+if (( $# < 1 )); then
+    echo 'Error: no action given' >&2
+    printUsage
+    exit 1
+fi
+
 case "$1" in
   add) ACTION_='add'; shift; action "$@"; exit 0 ;;
   rm) ACTION_='rm'; shift; action "$@"; exit 0 ;;
-  h|help) printUsage; exit 0 ;;
-  "") printUsage; exit 0 ;;
+  help) printUsage; exit 0 ;;
 esac
