@@ -67,7 +67,7 @@ function action
 
     if [[ $ACTION_ == "add" ]]; then
         $DEBUG_ lvcreate -s --size 5g -n "$LVS_" "$LV_"
-        $DEBUG_ mount $MOUNT_OPT_ "$LVS_PATH_" "$MNT_"
+        $DEBUG_ mount -r $MOUNT_OPT_ "$LVS_PATH_" "$MNT_"
     else
         $DEBUG_ umount "$MNT_"
         # safety checks
