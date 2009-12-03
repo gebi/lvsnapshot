@@ -1,0 +1,46 @@
+#!/bin/bash
+
+PROG_NAME__="`basename $0`"
+
+if [[ $DEBUG != '' ]]; then
+    DEBUG_='echo'
+else
+    DEBUG_=''
+fi
+
+function printUsage
+{
+    cat <<EOT
+Usage: "$PROG_NAME__" <ACTION> LV LV_SNAPSHOT MNT_POINT
+
+$PROG_NAME__ is a program to easily add and remove lvm snapshots and mount them
+
+ACTIONS:
+   add        Create lvm snapshot + mount
+   rm         Remove lvm snapshot + unmount
+   help       this help text
+EOT
+}
+
+function action
+{
+    local LV_="$1"
+    local LVS_="$2"
+    local MNT_="$3"
+    local VG_="$(dirname $LV_)"
+    local LVS_PATH_="${VG_}/${LVS_}"
+
+    if [[ $ACTION_ == "add" ]]; then
+        $DEBUG_ lvcreate -s --size 5g -n "$LVS_" "$LV_"
+        $DEBUG_ mount -o nouuid "$LVS_PATH_" "$MNT_"
+    else
+        $DEBUG_ umount "$MNT_"
+        $DEBUG_ lvremove "$LVS_PATH_"
+    fi
+}
+
+case "$1" in
+  add) ACTION_='add'; shift; action "$@"; exit 0 ;;
+  rm) ACTION_='rm'; shift; action "$@"; exit 0 ;;
+  "") printUsage; exit 0 ;;
+esac
