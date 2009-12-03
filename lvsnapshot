@@ -6,6 +6,7 @@ PROG_NAME__="`basename $0`"
 DEBUG_=''   # echo if enabled
 OPT_DEBUG_='false'
 OPT_FORCE_='false'
+OPT_WRITE_='false'
 OPT_FSTYPE_=''
 
 function debug_enabled {
@@ -13,6 +14,9 @@ function debug_enabled {
 }
 function force_enabled {
     [[ $OPT_FORCE_ == 'true' ]] && return 0 || return 1
+}
+function write_enabled {
+    [[ $OPT_WRITE_ == 'true' ]] && return 0 || return 1
 }
 
 function die
@@ -31,6 +35,7 @@ $PROG_NAME__ is a program to easily manage lvm snapshots including mountpoints
 
 OPTIONS:
    -t          Filesystem type (e.g xfs needs special handling)
+   -w          Mount writeable (default is read-only for lvm + mount)
    -d          Enable debugging (enable -f for complete command dump)
    -f          Force, proceed even if error occours or against safety checks
    -h          This help message
@@ -56,33 +61,47 @@ function action
     local VG_="$(dirname $LV_)"
     local LVS_PATH_="${VG_}/${LVS_}"
     local MOUNT_OPT_=""
+    local LV_OPT_="--permission r"
 
     case $OPT_FSTYPE_ in
         xfs) MOUNT_OPT_='-o nouuid'
     esac
+
+    if write_enabled; then
+        if [[ $MOUNT_OPT_ != "" ]]; then
+            # append to options
+            MOUNT_OPT_="${MOUNT_OPT_},noatime"
+        else
+            MOUNT_OPT_="-o noatime"
+        fi
+        MOUNT_OPT_="-w $MOUNT_OPT_"
+        LV_OPT_="${LV_OPT_}w"
+    else
+        MOUNT_OPT_="-r $MOUNT_OPT_"
+    fi
 
     if ! echo "$LVS_PATH_" |grep -q '^/dev/'; then
         LVS_PATH_="/dev/$LVS_PATH_"
     fi
 
     if [[ $ACTION_ == "add" ]]; then
-        $DEBUG_ lvcreate -s --size 5g -n "$LVS_" "$LV_"
-        $DEBUG_ mount -r $MOUNT_OPT_ "$LVS_PATH_" "$MNT_"
+        $DEBUG_ lvcreate -s $LV_OPT_ --size 5g -n "$LVS_" "$LV_"
+        $DEBUG_ mount $MOUNT_OPT_ "$LVS_PATH_" "$MNT_"
     else
         $DEBUG_ umount "$MNT_"
         # safety checks
         debug_enabled && echo "lvdisplay $LVS_PATH_ |grep -q 'LV snapshot status *active destination for'"
         if ! lvdisplay "$LVS_PATH_" |grep -q 'LV snapshot status *active destination for'; then
-            force_enabled && break
-            die "ERROR: $LVS_PATH_ does not look like an lvm snapshot, will NOT remove"
+            force_enabled || die "ERROR: $LVS_PATH_ does not look like an lvm snapshot, will NOT remove"
         fi
         $DEBUG_ lvremove -f "$LVS_PATH_"
     fi
 }
 
-while getopts "t:dfh" opt; do
+while getopts "t:wdfh" opt; do
     case "$opt" in
         t) OPT_FSTYPE_="$OPTARG" ;;
+        w) OPT_WRITE_='true' ;;
         d) OPT_DEBUG_='true'; DEBUG_='echo' ;;
         f) OPT_FORCE_='true' ;;
         h) printUsage; exit 0 ;;
