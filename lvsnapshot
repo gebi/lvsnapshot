@@ -2,6 +2,11 @@
 
 set -u
 
+# uncommon, i know..., but every log output should be in dirvish logfiles
+# stderr would get through
+exec 2>&1
+#set -x
+
 PROG_NAME__="`basename $0`"
 DEBUG_=''   # echo if enabled
 OPT_DEBUG_='false'
