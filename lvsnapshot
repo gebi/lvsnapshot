@@ -64,7 +64,7 @@ function action
     local LV_OPT_="--permission r"
 
     case $OPT_FSTYPE_ in
-        xfs) MOUNT_OPT_='-o nouuid'
+        xfs) MOUNT_OPT_='-o nouuid,norecovery'
     esac
 
     if write_enabled; then
