@@ -85,8 +85,13 @@ function action
     fi
 
     if [[ $ACTION_ == "add" ]]; then
-        $DEBUG_ lvcreate -s $LV_OPT_ --size 5g -n "$LVS_" "$LV_"
-        $DEBUG_ mount $MOUNT_OPT_ "$LVS_PATH_" "$MNT_"
+        if ! $DEBUG_ lvcreate -s $LV_OPT_ --size 5g -n "$LVS_" "$LV_"; then
+            die "Error executing: lvcreate -s $LV_OPT_ --size 5g -n \"$LVS_\" \"$LV_\""
+        fi
+        if ! $DEBUG_ mount $MOUNT_OPT_ "$LVS_PATH_" "$MNT_"; then
+            lvremove -f "$LVS_PATH_"
+            die "Error executing: mount $MOUNT_OPT_ \"$LVS_PATH_\" \"$MNT_\""
+        fi
     else
         $DEBUG_ umount "$MNT_"
         # safety checks
